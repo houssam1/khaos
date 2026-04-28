@@ -1,0 +1,2593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OPÉRATION KHAOS — ALERTE NIVEAU ROUGE</title>
+<style>
+  @import url('data:text/css,');
+
+  :root {
+    --bg: #0a0a0a;
+    --primary: #00ff41;
+    --secondary: #00cc33;
+    --danger: #ff0040;
+    --warning: #ffaa00;
+    --muted: #003300;
+    --text: #00ff41;
+    --text-dim: #007a1f;
+    --font: 'Courier New', Courier, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* CRT Scanlines */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.6) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  /* GLITCH ANIMATION */
+  @keyframes glitch {
+    0% { text-shadow: 0 0 10px var(--primary), 2px 0 0 rgba(255,0,64,0.7); transform: translate(0); }
+    2% { transform: translate(-2px, 1px); text-shadow: -2px 0 0 rgba(255,0,64,0.7), 2px 0 0 rgba(0,255,65,0.7); }
+    4% { transform: translate(2px, -1px); text-shadow: 2px 0 0 rgba(255,0,64,0.7); }
+    6% { transform: translate(0); text-shadow: 0 0 10px var(--primary); }
+    100% { text-shadow: 0 0 10px var(--primary); transform: translate(0); }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes phosphor {
+    0% { text-shadow: 0 0 5px var(--primary); }
+    50% { text-shadow: 0 0 20px var(--primary), 0 0 40px rgba(0,255,65,0.3); }
+    100% { text-shadow: 0 0 5px var(--primary); }
+  }
+
+  @keyframes fadeInLine {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes dangerPulse {
+    0%, 100% { color: var(--danger); text-shadow: 0 0 10px var(--danger); }
+    50% { color: #ff6680; text-shadow: 0 0 20px var(--danger), 0 0 40px rgba(255,0,64,0.5); }
+  }
+
+  @keyframes scan {
+    0% { top: -100%; }
+    100% { top: 100%; }
+  }
+
+  @keyframes typewriter {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  .glitch { animation: glitch 4s infinite; }
+  .blink { animation: blink 1s infinite; }
+  .phosphor { animation: phosphor 2s infinite; }
+
+  /* SCREENS */
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: flex; flex-direction: column; }
+
+  /* HEADER */
+  #game-header {
+    display: none;
+    background: #050505;
+    border-bottom: 2px solid var(--primary);
+    padding: 8px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 20px rgba(0,255,65,0.2);
+  }
+  #game-header.visible { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+  .header-item {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .header-item span {
+    color: var(--primary);
+    font-weight: bold;
+    text-shadow: 0 0 8px var(--primary);
+  }
+  .header-timer { font-size: 20px; font-weight: bold; }
+  .header-timer.danger { animation: dangerPulse 0.5s infinite; }
+
+  /* BOOT SCREEN */
+  #screen-boot {
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 40px 20px;
+  }
+
+  .ascii-art {
+    font-size: 12px;
+    line-height: 1.2;
+    color: var(--primary);
+    text-shadow: 0 0 15px var(--primary);
+    margin: 20px 0;
+    white-space: pre;
+    text-align: center;
+  }
+
+  .boot-lines { max-width: 600px; width: 100%; }
+  .boot-line {
+    padding: 4px 0;
+    color: var(--secondary);
+    opacity: 0;
+    font-size: 15px;
+    letter-spacing: 1px;
+  }
+  .boot-line.shown { opacity: 1; animation: fadeInLine 0.3s ease forwards; }
+
+  .main-title {
+    font-size: 52px;
+    text-align: center;
+    letter-spacing: 8px;
+    margin: 20px 0 10px;
+    text-shadow: 0 0 30px var(--primary), 0 0 60px rgba(0,255,65,0.4);
+  }
+
+  .subtitle {
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: var(--danger);
+    text-shadow: 0 0 15px var(--danger);
+    margin-bottom: 30px;
+  }
+
+  .btn {
+    display: inline-block;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    background: transparent;
+    font-family: var(--font);
+    font-size: 16px;
+    letter-spacing: 3px;
+    padding: 14px 40px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    text-shadow: 0 0 8px var(--primary);
+    box-shadow: 0 0 10px rgba(0,255,65,0.2), inset 0 0 10px transparent;
+  }
+  .btn:hover {
+    background: var(--primary);
+    color: #000;
+    text-shadow: none;
+    box-shadow: 0 0 30px rgba(0,255,65,0.6);
+  }
+  .btn:disabled {
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    cursor: not-allowed;
+    text-shadow: none;
+    box-shadow: none;
+  }
+  .btn-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+    text-shadow: 0 0 8px var(--danger);
+  }
+  .btn-danger:hover {
+    background: var(--danger);
+    color: #000;
+    box-shadow: 0 0 30px rgba(255,0,64,0.6);
+  }
+  .btn-small {
+    font-size: 12px;
+    padding: 8px 20px;
+    letter-spacing: 1px;
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    text-shadow: none;
+  }
+  .btn-small:hover {
+    background: var(--muted);
+    color: var(--secondary);
+    box-shadow: none;
+  }
+
+  /* CONSIGNES SCREEN */
+  #screen-consignes { justify-content: center; align-items: center; padding: 40px 20px; }
+
+  .consignes-box {
+    max-width: 700px;
+    width: 100%;
+    border: 2px solid var(--primary);
+    padding: 40px;
+    box-shadow: 0 0 30px rgba(0,255,65,0.15);
+    position: relative;
+  }
+
+  .consignes-box::before {
+    content: '';
+    position: absolute;
+    top: 5px; left: 5px; right: 5px; bottom: 5px;
+    border: 1px solid var(--muted);
+    pointer-events: none;
+  }
+
+  .consignes-title {
+    font-size: 20px;
+    letter-spacing: 4px;
+    margin-bottom: 24px;
+    color: var(--danger);
+    text-shadow: 0 0 10px var(--danger);
+  }
+
+  .consignes-text {
+    white-space: pre-line;
+    line-height: 1.8;
+    color: var(--secondary);
+    margin-bottom: 30px;
+    font-size: 14px;
+  }
+
+  .input-group { margin: 20px 0; }
+  .input-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .terminal-input {
+    width: 100%;
+    background: #000;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    font-family: var(--font);
+    font-size: 18px;
+    padding: 12px 16px;
+    outline: none;
+    letter-spacing: 2px;
+    text-shadow: 0 0 8px var(--primary);
+    box-shadow: 0 0 15px rgba(0,255,65,0.1) inset;
+  }
+  .terminal-input:focus {
+    box-shadow: 0 0 20px rgba(0,255,65,0.2) inset, 0 0 10px rgba(0,255,65,0.3);
+  }
+  .terminal-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+
+  /* GAME SCREEN */
+  #screen-game { padding: 0; flex-direction: column; }
+  #game-content { flex: 1; padding: 30px 20px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+  .module-header {
+    border: 2px solid var(--primary);
+    padding: 16px 24px;
+    margin-bottom: 30px;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,255,65,0.1);
+  }
+
+  .module-title {
+    font-size: 22px;
+    letter-spacing: 4px;
+    margin-bottom: 4px;
+    text-shadow: 0 0 10px var(--primary);
+  }
+
+  .module-meta {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .meta-badge {
+    padding: 2px 8px;
+    border: 1px solid var(--muted);
+    font-size: 11px;
+  }
+
+  .meta-badge.difficile { border-color: var(--danger); color: var(--danger); }
+  .meta-badge.moyen { border-color: var(--warning); color: var(--warning); }
+  .meta-badge.facile { border-color: var(--secondary); color: var(--secondary); }
+
+  .enonce-box {
+    border: 1px solid var(--muted);
+    padding: 24px;
+    margin-bottom: 24px;
+    background: rgba(0,255,65,0.02);
+    line-height: 1.8;
+    white-space: pre-line;
+    font-size: 15px;
+    color: var(--secondary);
+  }
+
+  .rebus-container {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 20px;
+    border: 1px solid var(--muted);
+    margin-bottom: 20px;
+    background: rgba(0,255,65,0.02);
+  }
+
+  .rebus-item {
+    text-align: center;
+    font-size: 48px;
+    filter: drop-shadow(0 0 8px rgba(0,255,65,0.3));
+  }
+
+  .rebus-plus {
+    font-size: 28px;
+    color: var(--text-dim);
+    font-weight: bold;
+  }
+
+  /* POLYBE GRID */
+  .polybe-table {
+    border-collapse: collapse;
+    margin: 20px auto;
+    font-size: 16px;
+  }
+  .polybe-table th, .polybe-table td {
+    border: 1px solid var(--muted);
+    padding: 12px 18px;
+    text-align: center;
+    min-width: 50px;
+  }
+  .polybe-table th {
+    background: var(--muted);
+    color: var(--primary);
+    font-weight: bold;
+  }
+  .polybe-table td { color: var(--secondary); }
+  .polybe-table tr:hover td { background: rgba(0,255,65,0.05); }
+
+  .code-sequence {
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--warning);
+    text-shadow: 0 0 8px var(--warning);
+    padding: 16px;
+    border: 1px solid rgba(255,170,0,0.3);
+    text-align: center;
+    margin: 16px 0;
+    font-weight: bold;
+    word-break: break-all;
+    line-height: 1.8;
+  }
+
+  /* CROSSWORD */
+  .crossword-wrapper {
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .crossword-grid-container {
+    overflow-x: auto;
+    flex: 1;
+    min-width: 300px;
+  }
+
+  .crossword-grid {
+    display: inline-grid;
+    border: 2px solid var(--primary);
+    gap: 0;
+    box-shadow: 0 0 20px rgba(0,255,65,0.15);
+  }
+
+  .cw-cell {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #1a4a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+    font-family: var(--font);
+    position: relative;
+    background: #0d1f0d;
+    transition: background 0.15s;
+  }
+
+  .cw-cell.active-cell {
+    background: #0d220d;
+    cursor: pointer;
+    border-color: #2a6a2a;
+  }
+
+  .cw-cell.active-cell:hover { background: #0f2e0f; border-color: var(--secondary); }
+  .cw-cell.blocked { 
+    background: #1a1a1a; 
+    border-color: #222; 
+    cursor: default;
+    pointer-events: none;
+  }
+  .cw-cell.correct { background: #0a3a0a; border-color: var(--primary); }
+  .cw-cell.incorrect { background: #2a0008; border-color: var(--danger); }
+
+  /* Fixed cell: pre-filled, non-editable, purple tint like reference image */
+  .cw-cell.fixed-cell {
+    background: #1a0a2e;
+    border-color: #6a3aaa;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  /* Label-only cell: shows number, greyed out, not part of the word */
+  .cw-cell.label-only {
+    background: #0d0d0d;
+    border-color: #1a1a1a;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .cw-cell-letter {
+    color: #cc99ff;
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 0 6px #9933ff;
+    font-family: var(--font);
+    line-height: 1;
+  }
+
+  .cw-cell-input {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: #00ff41;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+    padding: 0;
+    text-shadow: 0 0 8px var(--primary);
+    caret-color: var(--primary);
+  }
+
+  .cw-cell-input:focus {
+    background: rgba(0,255,65,0.12);
+  }
+
+  .cw-cell-number {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    font-size: 8px;
+    color: var(--secondary);
+    line-height: 1;
+    pointer-events: none;
+  }
+
+  .crossword-clues {
+    min-width: 200px;
+    flex: 1;
+  }
+
+  .clue-section-title {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--muted);
+    padding-bottom: 6px;
+  }
+
+  .clue-item {
+    font-size: 12px;
+    margin-bottom: 8px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    padding: 4px 8px;
+    transition: all 0.2s;
+    cursor: default;
+  }
+  .clue-item:hover { color: var(--secondary); background: rgba(0,255,65,0.03); }
+  .clue-item.solved { color: var(--primary); text-shadow: 0 0 4px var(--primary); }
+  .clue-item .clue-num { color: var(--primary); font-weight: bold; margin-right: 4px; }
+
+  .crossword-score-display {
+    font-size: 14px;
+    color: var(--secondary);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+  }
+  .crossword-score-display span { color: var(--primary); font-weight: bold; text-shadow: 0 0 8px var(--primary); }
+
+  /* INPUT SECTION */
+  .answer-section { margin-top: 20px; }
+  .answer-label {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .answer-row { display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap; }
+
+  .attempts-display {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-top: 8px;
+  }
+
+  /* FEEDBACK */
+  .feedback-box {
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 14px;
+    letter-spacing: 1px;
+    line-height: 1.6;
+    border: 2px solid;
+    animation: fadeInLine 0.3s ease;
+  }
+  .feedback-success {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(0,255,65,0.05);
+    text-shadow: 0 0 8px var(--primary);
+  }
+  .feedback-error {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(255,0,64,0.05);
+    text-shadow: 0 0 8px var(--danger);
+  }
+  .feedback-warning {
+    border-color: var(--warning);
+    color: var(--warning);
+    background: rgba(255,170,0,0.05);
+  }
+
+  /* INDICE */
+  .hint-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--muted);
+  }
+
+  .hint-box {
+    padding: 12px 16px;
+    border: 1px dashed var(--warning);
+    color: var(--warning);
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    background: rgba(255,170,0,0.03);
+  }
+
+  /* POPUP */
+  .popup-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    z-index: 5000;
+    justify-content: center;
+    align-items: center;
+  }
+  .popup-overlay.active { display: flex; }
+
+  .popup-box {
+    border: 2px solid var(--warning);
+    background: #050505;
+    padding: 40px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(255,170,0,0.3);
+  }
+  .popup-title {
+    font-size: 18px;
+    color: var(--warning);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+  .popup-text {
+    font-size: 14px;
+    color: var(--secondary);
+    margin-bottom: 24px;
+    line-height: 1.7;
+  }
+  .popup-buttons { display: flex; gap: 12px; justify-content: flex-end; }
+
+  /* TRANSITION SCREEN */
+  #screen-transition {
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .transition-lines { max-width: 600px; width: 100%; }
+  .transition-line {
+    padding: 3px 0;
+    font-size: 14px;
+    color: var(--secondary);
+    opacity: 0;
+  }
+  .transition-line.shown {
+    opacity: 1;
+    animation: fadeInLine 0.2s ease forwards;
+  }
+
+  /* END SCREEN */
+  #screen-end {
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
+    flex-direction: column;
+  }
+
+  .end-box {
+    max-width: 800px;
+    width: 100%;
+    border: 2px solid var(--primary);
+    padding: 40px;
+    box-shadow: 0 0 50px rgba(0,255,65,0.2);
+  }
+
+  .end-title {
+    font-size: 28px;
+    letter-spacing: 5px;
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px var(--primary);
+    white-space: pre-line;
+    text-align: center;
+  }
+
+  .end-score-big {
+    font-size: 64px;
+    text-align: center;
+    letter-spacing: 4px;
+    margin: 24px 0;
+    text-shadow: 0 0 40px var(--primary), 0 0 80px rgba(0,255,65,0.3);
+  }
+
+  .end-team {
+    text-align: center;
+    font-size: 20px;
+    letter-spacing: 4px;
+    color: var(--warning);
+    margin-bottom: 30px;
+  }
+
+  .end-details {
+    border: 1px solid var(--muted);
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .end-details-header {
+    background: var(--muted);
+    padding: 10px 16px;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+  }
+
+  .end-module-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 10px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--muted);
+    font-size: 13px;
+    align-items: center;
+  }
+  .end-module-row:last-child { border-bottom: none; }
+  .end-module-row .mod-name { color: var(--secondary); }
+  .end-module-row .mod-pts { color: var(--primary); text-shadow: 0 0 5px var(--primary); }
+  .end-module-row .mod-hint { color: var(--warning); font-size: 11px; }
+  .end-module-row .mod-tries { color: var(--text-dim); font-size: 11px; }
+
+  .organizer-note {
+    border: 2px solid var(--warning);
+    padding: 20px;
+    text-align: center;
+    margin-top: 24px;
+    color: var(--warning);
+    font-size: 15px;
+    letter-spacing: 2px;
+    line-height: 1.7;
+    box-shadow: 0 0 20px rgba(255,170,0,0.15);
+  }
+
+  .separator {
+    border: none;
+    border-top: 1px solid var(--muted);
+    margin: 20px 0;
+  }
+
+  .text-center { text-align: center; }
+  .mt-20 { margin-top: 20px; }
+  .mb-20 { margin-bottom: 20px; }
+  .text-dim { color: var(--text-dim); }
+  .text-danger { color: var(--danger); text-shadow: 0 0 8px var(--danger); }
+  .text-warning { color: var(--warning); }
+
+  /* MODULE 03 IMAGE */
+  .module-image-container {
+    border: 1px solid var(--muted);
+    padding: 4px;
+    margin-bottom: 20px;
+    text-align: center;
+    background: #000;
+  }
+  .module-image-container img {
+    max-width: 100%;
+    max-height: 350px;
+    filter: sepia(0.3) hue-rotate(80deg) saturate(0.8) brightness(0.9);
+    display: block;
+    margin: 0 auto;
+  }
+  .module-image-placeholder {
+    padding: 60px 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  /* Satellite scan animation */
+  .scan-line-effect {
+    position: relative;
+    overflow: hidden;
+  }
+  .scan-line-effect::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: rgba(0,255,65,0.6);
+    animation: scan 2s linear infinite;
+    box-shadow: 0 0 10px var(--primary);
+  }
+
+  /* End state for timeout */
+  .end-box.timeout { border-color: var(--danger); box-shadow: 0 0 50px rgba(255,0,64,0.2); }
+  .end-box.timeout .end-title { color: var(--danger); text-shadow: 0 0 20px var(--danger); }
+  .end-box.timeout .end-score-big { text-shadow: 0 0 20px var(--danger); }
+
+  /* Progress bar */
+  .progress-bar {
+    height: 3px;
+    background: var(--muted);
+    margin-bottom: 30px;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px var(--primary);
+  }
+
+  /* Stars in background */
+  .stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: -1;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    width: 1px; height: 1px;
+    background: rgba(0,255,65,0.3);
+    border-radius: 50%;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #000; }
+  ::-webkit-scrollbar-thumb { background: var(--muted); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+  /* Loading bar */
+  .loading-bar {
+    width: 300px;
+    height: 4px;
+    background: var(--muted);
+    margin: 20px auto;
+    overflow: hidden;
+  }
+  .loading-fill {
+    height: 100%;
+    background: var(--primary);
+    box-shadow: 0 0 8px var(--primary);
+    animation: loadingAnim 2s ease-out forwards;
+  }
+  @keyframes loadingAnim {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  .cursor-blink::after {
+    content: '█';
+    animation: blink 1s infinite;
+    color: var(--primary);
+    margin-left: 2px;
+  }
+
+  /* SLIDING PUZZLE */
+  .sliding-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    max-width: 540px;
+    margin: 0 auto 24px;
+    padding: 12px;
+    border: 2px solid var(--muted);
+    background: #050505;
+  }
+
+  .slide-tile {
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 1px;
+    font-family: var(--font);
+    border: 1px solid var(--secondary);
+    background: #0d220d;
+    color: var(--primary);
+    text-shadow: 0 0 6px var(--primary);
+    cursor: pointer;
+    padding: 6px;
+    line-height: 1.4;
+    transition: background 0.15s, transform 0.1s;
+    user-select: none;
+    position: relative;
+  }
+
+  .slide-tile:hover {
+    background: #0f2e0f;
+    box-shadow: 0 0 10px rgba(0,255,65,0.2);
+  }
+
+  .slide-tile.empty {
+    background: #000;
+    border: 1px dashed #1a1a1a;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .slide-tile.correct-pos {
+    border-color: var(--primary);
+    background: #0a3a0a;
+    box-shadow: 0 0 8px rgba(0,255,65,0.2);
+  }
+
+  .slide-tile-num {
+    position: absolute;
+    top: 4px;
+    left: 6px;
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  .sliding-progress {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .sliding-progress span { color: var(--primary); font-weight: bold; }
+
+  .sliding-hint {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  /* ============================================================
+     RESPONSIVE — TABLET (≤ 768px)
+  ============================================================ */
+  @media (max-width: 768px) {
+
+    body { font-size: 14px; }
+
+    /* Header: 2×2 grid */
+    #game-header.visible {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+      padding: 8px 14px;
+    }
+    .header-item { font-size: 12px; }
+    .header-timer { font-size: 18px; }
+
+    /* Boot */
+    .ascii-art { font-size: 9px; }
+    .main-title { font-size: 34px; letter-spacing: 4px; }
+    .subtitle { font-size: 16px; letter-spacing: 3px; }
+    .boot-line { font-size: 13px; }
+
+    /* Buttons */
+    .btn { padding: 12px 24px; font-size: 14px; letter-spacing: 2px; }
+    .btn-small { padding: 8px 14px; font-size: 11px; }
+
+    /* Consignes */
+    #screen-consignes { padding: 20px 14px; align-items: stretch; }
+    .consignes-box { padding: 24px 18px; }
+    .consignes-title { font-size: 16px; letter-spacing: 2px; }
+    .consignes-text { font-size: 13px; }
+
+    /* Game content */
+    #game-content { padding: 16px 14px; }
+    .module-title { font-size: 17px; letter-spacing: 2px; }
+    .enonce-box { padding: 16px; font-size: 14px; }
+
+    /* Polybe */
+    .polybe-table th, .polybe-table td { padding: 8px 12px; font-size: 14px; min-width: 36px; }
+
+    /* Crossword: stack grid above clues */
+    .crossword-wrapper { flex-direction: column; gap: 16px; }
+    .crossword-grid-container { min-width: unset; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .crossword-clues { min-width: unset; }
+
+    /* Sliding */
+    .sliding-board { max-width: 420px; gap: 5px; padding: 10px; }
+    .slide-tile { height: 62px; font-size: 10px; }
+
+    /* End screen */
+    #screen-end { padding: 20px 14px; }
+    .end-box { padding: 24px 16px; }
+    .end-title { font-size: 20px; letter-spacing: 2px; }
+    .end-score-big { font-size: 52px; }
+    .end-team { font-size: 16px; letter-spacing: 2px; }
+    .end-module-row { grid-template-columns: 1fr auto auto; font-size: 12px; gap: 6px; padding: 8px 12px; }
+    .end-module-row .mod-tries { display: none; }
+
+    /* Popup */
+    .popup-box { padding: 24px 18px; }
+    .popup-buttons { flex-direction: column; gap: 8px; }
+    .popup-buttons .btn { width: 100%; text-align: center; }
+
+    /* Answer row */
+    .answer-row { flex-direction: column; }
+    .answer-row .btn { width: 100%; }
+    .terminal-input { font-size: 16px; }
+  }
+
+  /* ============================================================
+     RESPONSIVE — MOBILE (≤ 480px)
+  ============================================================ */
+  @media (max-width: 480px) {
+
+    body { font-size: 13px; }
+
+    /* Header: compact 2-col */
+    #game-header.visible {
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 8px;
+      padding: 6px 10px;
+    }
+    .header-item { font-size: 10px; }
+    .header-timer { font-size: 15px; }
+
+    /* Boot */
+    .ascii-art { display: none; }
+    .main-title { font-size: 22px; letter-spacing: 2px; margin: 10px 0 6px; }
+    .subtitle { font-size: 12px; letter-spacing: 2px; }
+    .boot-line { font-size: 11px; }
+    .loading-bar { width: 200px; }
+
+    /* Consignes */
+    .consignes-box { padding: 14px 10px; }
+    .consignes-title { font-size: 13px; letter-spacing: 1px; }
+    .consignes-text { font-size: 11px; line-height: 1.6; }
+
+    /* Buttons full-width on mobile */
+    .btn { padding: 12px 14px; font-size: 12px; letter-spacing: 1px; width: 100%; display: block; text-align: center; }
+    .btn + .btn { margin-top: 8px; }
+    .btn-small { width: auto; display: inline-block; }
+
+    /* Game */
+    #game-content { padding: 10px 8px; }
+    .module-header { padding: 10px 12px; margin-bottom: 14px; }
+    .module-title { font-size: 13px; letter-spacing: 1px; }
+    .module-meta { gap: 10px; }
+    .enonce-box { padding: 10px 12px; font-size: 12px; }
+
+    /* Rebus */
+    .rebus-container { gap: 10px; padding: 12px; }
+    .rebus-item { font-size: 32px; }
+    .rebus-plus { font-size: 18px; }
+
+    /* Polybe */
+    .polybe-table { font-size: 11px; }
+    .polybe-table th, .polybe-table td { padding: 5px 7px; min-width: 24px; }
+    .code-sequence { font-size: 10px; letter-spacing: 1px; padding: 8px; line-height: 1.6; }
+
+    /* Crossword cells smaller */
+    .cw-cell { width: 24px; height: 24px; }
+    .cw-cell-input { font-size: 10px; }
+    .cw-cell-number { font-size: 5px; }
+    .clue-item { font-size: 10px; margin-bottom: 6px; }
+    .clue-section-title { font-size: 10px; }
+    .crossword-score-display { font-size: 12px; }
+
+    /* Sliding: full width */
+    .sliding-board { max-width: 100%; gap: 3px; padding: 6px; }
+    .slide-tile { height: 48px; font-size: 8px; padding: 3px; }
+    .slide-tile-num { font-size: 7px; top: 2px; left: 3px; }
+    .sliding-progress { font-size: 11px; }
+    .sliding-hint { font-size: 10px; }
+
+    /* End */
+    .end-title { font-size: 14px; letter-spacing: 1px; }
+    .end-score-big { font-size: 36px; letter-spacing: 2px; margin: 14px 0; }
+    .end-team { font-size: 13px; letter-spacing: 1px; }
+    .end-module-row { grid-template-columns: 1fr auto; font-size: 10px; padding: 6px 8px; }
+    .end-module-row .mod-hint { display: none; }
+    .end-module-row .mod-tries { display: none; }
+    .organizer-note { font-size: 12px; letter-spacing: 1px; padding: 12px; }
+    .end-box { padding: 16px 10px; }
+
+    /* Feedback */
+    .feedback-box { font-size: 11px; padding: 10px 12px; letter-spacing: 0; }
+
+    /* Transition */
+    .transition-line { font-size: 11px; }
+    .transition-lines { padding: 0 10px; }
+
+    /* Hint */
+    .hint-box { font-size: 11px; }
+
+    /* Popup */
+    .popup-box { padding: 18px 14px; }
+    .popup-title { font-size: 15px; }
+    .popup-text { font-size: 12px; }
+  }
+
+  /* ============================================================
+     TOUCH DEVICES — better tap targets, no broken hovers
+  ============================================================ */
+  @media (hover: none) and (pointer: coarse) {
+    /* Replace hover with active states */
+    .btn:hover {
+      background: transparent;
+      color: var(--primary);
+      text-shadow: 0 0 8px var(--primary);
+      box-shadow: 0 0 10px rgba(0,255,65,0.2);
+    }
+    .btn:active { background: var(--primary) !important; color: #000 !important; text-shadow: none !important; }
+    .btn-danger:hover { background: transparent; color: var(--danger); }
+    .btn-danger:active { background: var(--danger) !important; color: #000 !important; }
+    .btn-small:hover { background: transparent; color: var(--text-dim); box-shadow: none; }
+    .btn-small:active { background: var(--muted) !important; color: var(--secondary) !important; }
+
+    /* Bigger tap targets for crossword */
+    .cw-cell.active-cell { cursor: default; }
+    .cw-cell.active-cell:hover { background: #0d220d; border-color: #2a6a2a; }
+    .cw-cell.active-cell:active { background: rgba(0,255,65,0.15) !important; }
+
+    /* Sliding tiles */
+    .slide-tile { cursor: default; }
+    .slide-tile:hover { background: #0d220d; box-shadow: none; }
+    .slide-tile:active { background: #143a14 !important; }
+
+    /* Polybe hover off */
+    .polybe-table tr:hover td { background: transparent; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- Stars background -->
+<div class="stars" id="stars"></div>
+
+<!-- HINT POPUP -->
+<div class="popup-overlay" id="hint-popup">
+  <div class="popup-box">
+    <div class="popup-title">⚠ DEMANDE D'INDICE</div>
+    <div class="popup-text">Utiliser un indice coûte <strong style="color:var(--warning)">5 points</strong> sur votre score final.<br><br>Voulez-vous continuer ?</div>
+    <div class="popup-buttons">
+      <button class="btn btn-small" onclick="closeHintPopup()">[ ANNULER ]</button>
+      <button class="btn" onclick="confirmHint()">[ CONFIRMER -5 PTS ]</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME HEADER -->
+<div id="game-header">
+  <div class="header-item">AGENT: <span id="h-team">—</span></div>
+  <div class="header-item header-timer" id="h-timer">30:00</div>
+  <div class="header-item">SCORE: <span id="h-score">0</span>/100</div>
+  <div class="header-item">MODULE <span id="h-module">1</span>/8</div>
+</div>
+
+<!-- ======== SCREEN: BOOT ======== -->
+<div id="screen-boot" class="screen active">
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; padding: 40px 20px;">
+
+    <pre class="ascii-art phosphor">
+    .  · ✦   .       .  ·      .   ✦    .
+  ✦         .    ╔═══════════════╗    .      ✦
+        .        ║  ██╗ ██╗╦ ╦  ║  .
+  ·    ✦         ║ ██╔╝ ██║╠═╣  ║        .
+         .       ║ ██║  ██║╠═╣  ║   ✦
+    .   ·        ║ ╚═╝  ╚═╝╩ ╩  ║      .
+          ✦      ╚═══════════════╝           .
+  .   ·       .       ✦     .         ·  ✦</pre>
+
+    <div class="main-title glitch">OPÉRATION KHAOS</div>
+    <div class="subtitle blink">⚠ ALERTE NIVEAU ROUGE ⚠</div>
+
+    <div class="boot-lines" id="boot-lines">
+      <div class="boot-line" id="bl-0">> SYSTÈME EN LIGNE...</div>
+      <div class="boot-line" id="bl-1">> CONNEXION AU CENTRE DE CONTRÔLE... <span style="color:var(--primary)">OK</span></div>
+      <div class="boot-line" id="bl-2">> DÉTECTION OBJET NON IDENTIFIÉ... <span style="color:var(--danger)">CONFIRMÉ</span></div>
+      <div class="boot-line" id="bl-3">> ASTÉROÏDE KHAOS — TRAJECTOIRE : <span style="color:var(--danger)">TERRE</span></div>
+      <div class="boot-line" id="bl-4">> IMPACT ESTIMÉ : <span style="color:var(--danger); animation:dangerPulse 0.8s infinite">T-30:00</span></div>
+      <div class="boot-line" id="bl-5">> AGENT, VOUS ÊTES NOTRE DERNIÈRE CHANCE.</div>
+    </div>
+
+    <div class="loading-bar" id="boot-loader" style="display:none">
+      <div class="loading-fill"></div>
+    </div>
+
+    <button class="btn" id="btn-boot-next" onclick="goToConsignes()" style="display:none; margin-top:30px">
+      [ ACCÉDER AU BRIEFING ]
+    </button>
+  </div>
+</div>
+
+<!-- ======== SCREEN: CONSIGNES ======== -->
+<div id="screen-consignes" class="screen">
+  <div class="consignes-box">
+    <div class="consignes-title glitch">⚠ ALERTE NIVEAU ROUGE — T-30:00</div>
+    <div class="consignes-text">AGENT, l'astéroïde KHAOS fonce vers la Terre.
+Impact imminent dans 30 minutes.
+Vous êtes notre dernière chance.
+
+RÈGLES DE MISSION :
+▸ 8 modules à déverrouiller séquentiellement
+▸ 3 tentatives max par énigme — échouez 3 fois, on passe
+▸ 1 indice disponible par énigme (-5 pts)
+▸ Score maximum : 100 points
+▸ Le chrono démarre au clic sur DÉMARRER
+
+VALIDATION FINALE :
+▸ À la fin de votre mission, rendez-vous à la terrasse
+▸ Montrez votre score final à l'organisateur</div>
+
+    <hr class="separator">
+
+    <div class="input-group">
+      <label class="input-label" for="team-input">> IDENTIFICATION AGENT — ENTREZ LE NOM DE VOTRE ÉQUIPE :</label>
+      <input type="text" id="team-input" class="terminal-input" placeholder="NOM_EQUIPE" maxlength="30"
+        onkeydown="if(event.key==='Enter') startMission()">
+    </div>
+
+    <div id="team-error" style="color:var(--danger); font-size:13px; margin-top:8px; display:none">
+      > ERREUR : NOM D'ÉQUIPE REQUIS (MINIMUM 2 CARACTÈRES)
+    </div>
+
+    <div class="text-center mt-20">
+      <button class="btn" onclick="startMission()">[ DÉMARRER LA MISSION ]</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== SCREEN: TRANSITION ======== -->
+<div id="screen-transition" class="screen">
+  <div class="transition-lines" id="transition-lines"></div>
+  <div class="loading-bar" style="margin-top:20px">
+    <div class="loading-fill"></div>
+  </div>
+</div>
+
+<!-- ======== SCREEN: GAME ======== -->
+<div id="screen-game" class="screen">
+  <div id="game-content">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div id="enigme-container"></div>
+  </div>
+</div>
+
+<!-- ======== SCREEN: END ======== -->
+<div id="screen-end" class="screen">
+  <div class="end-box" id="end-box">
+    <div class="end-title" id="end-title"></div>
+    <div class="end-team" id="end-team"></div>
+    <div class="end-score-big" id="end-score"></div>
+    <div style="text-align:center; color:var(--text-dim); font-size:13px; letter-spacing:2px;" id="end-time"></div>
+
+    <hr class="separator">
+
+    <div class="end-details">
+      <div class="end-details-header">RAPPORT DE MISSION — DÉTAIL PAR MODULE</div>
+      <div id="end-details-body"></div>
+    </div>
+
+    <div class="organizer-note">
+      📋 RENDEZ-VOUS À LA TERRASSE<br>
+      Montrez cet écran à l'organisateur pour valider votre score.
+    </div>
+
+    <div class="text-center mt-20">
+      <button class="btn" onclick="resetGame()">[ NOUVELLE MISSION ]</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  GAME STATE
+// ============================================================
+const ENIGMES = [
+  {
+    id: 1,
+    type: 'charade',
+    titre: 'MODULE 01 — IDENTIFICATION',
+    points: 8,
+    difficulte: 'Facile',
+    temps: 1,
+    enonce: `Pour accéder au terminal principal, identifiez le code d'accès grâce à cette charade :
+
+Mon premier est la 9ème lettre de l'alphabet.
+Mon deuxième est l'exclamation de celui qui vient de recevoir une information surprenante.
+Mon troisième se lit pareil à l'endroit et à l'envers.
+Mon tout est le lab d'innovation Data Science qui anticipe les tendances de demain.`,
+    reponse: 'IA RADAR',
+    valider: (v) => norm(v) === norm('IA RADAR'),
+    indice: null,
+    feedbackOk: '> ACCÈS AUTORISÉ. BIENVENUE, AGENT. MODULE 01 DÉVERROUILLÉ.',
+    feedbackEchec: '> ÉCHEC MODULE 01. CODE IGNORÉ. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 2,
+    type: 'rebus',
+    titre: 'MODULE 02 — DÉCRYPTAGE',
+    points: 8,
+    difficulte: 'Facile',
+    temps: 2,
+    enonce: 'Déchiffrez ce rébus pour identifier le framework stratégique :',
+    rebus: ['🥚','🥚','🎲','🧭'],
+    reponse: 'EDW',
+    valider: (v) => norm(v) === 'edw',
+    indice: null,
+    feedbackOk: '> FRAMEWORK IDENTIFIÉ. MODULE 02 DÉVERROUILLÉ.',
+    feedbackEchec: '> ÉCHEC MODULE 02. FRAMEWORK NON RECONNU. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 3,
+    type: 'image',
+    titre: 'MODULE 03 — RECONNAISSANCE',
+    points: 10,
+    difficulte: 'Moyen',
+    temps: 2,
+    enonce: `AGENT, identifiez le lieu représenté sur cette image satellite interceptée. À quel projet se rapporte-t-il ?`,
+    reponse: 'ALEXANDRIA',
+    valider: (v) => norm(v) === 'alexandria',
+    indice: 'Agentique',
+    feedbackOk: '> LIEU IDENTIFIÉ. MODULE 03 DÉVERROUILLÉ.',
+    feedbackEchec: '> RECONNAISSANCE ÉCHOUÉE. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 4,
+    type: 'enigme',
+    titre: 'MODULE 04 — PROTOCOLE',
+    points: 16,
+    difficulte: 'Difficile',
+    temps: 2,
+    enonce: `Pour activer le protocole d'urgence, résolvez cette charade :
+
+Mon premier est ce qui apparaît dans le ciel quand la pluie et le soleil se rencontrent.
+Mon second est l'animal philosophe de La Fontaine, qui porta le fardeau de Maître Martin.
+Mon tout est le sanctuaire du savoir précieux de nos sachants.`,
+    reponse: 'ARKANE',
+    valider: (v) => norm(v) === 'arkane',
+    indice: 'Logo noir',
+    feedbackOk: '> PROTOCOLE ACTIVÉ. MODULE 04 DÉVERROUILLÉ.',
+    feedbackEchec: '> PROTOCOLE REJETÉ. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 5,
+    type: 'polybe',
+    titre: 'MODULE 05 — LOCALISATION',
+    points: 17,
+    difficulte: 'Moyen',
+    temps: 5,
+    enonce: 'Utilisez le carré de Polybe ci-dessous pour déchiffrer les coordonnées d\'impact de KHAOS.',
+    polybe_grid: [
+      ['G','E','O','C','A'],
+      ['H','I','N','B','D'],
+      ['F','K','L','M','P'],
+      ['Q','R','S','T','U'],
+      ['V','W','X','Y','Z']
+    ],
+    sequence: '44 21 12 23 15 34 12 13 31 13 45 42 25 15 44 15 35 42 13 11 52 15 34',
+    valider: (v) => {
+      const n = norm(v).replace(/\s+/g,'');
+      return ['datainmotion','datainmotioncavemd'].includes(n);
+    },
+    indice: 'Lisez le tableau ligne par ligne : le premier chiffre = numéro de ligne, le second = numéro de colonne.',
+    feedbackOk: '> COORDONNÉES LOCALISÉES. MODULE 05 DÉVERROUILLÉ.',
+    feedbackEchec: '> DÉCHIFFREMENT ÉCHOUÉ. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 6,
+    type: 'rebus2',
+    titre: 'MODULE 06 — VÉRITÉ',
+    points: 13,
+    difficulte: 'Difficile',
+    temps: 2,
+    enonce: 'Déchiffrez ce rébus pour trouver le principe fondamental du système :',
+    rebus: [
+      { emoji: '💿', label: 'SINGLE' },
+      { emoji: '🏞️', label: 'SOURCE' },
+      { emoji: '🥚', label: 'OF' },
+      { emoji: '🕳️', label: 'TRU' },
+      { emoji: '🔥', label: 'TH' }
+    ],
+    instruction: 'Assemblez les sons de chaque emoji pour former une expression célèbre en anglais.',
+    valider: (v) => {
+      const n = norm(v);
+      return n === 'singlesourceoftruth' || n === 'ssot' || n === 'single source of truth';
+    },
+    indice: 'Snowflake',
+    feedbackOk: '> VÉRITÉ ÉTABLIE. MODULE 06 DÉVERROUILLÉ.',
+    feedbackEchec: '> VÉRITÉ NON RECONNUE. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 7,
+    type: 'crossword',
+    titre: 'MODULE 07 — ACTIVATION',
+    points: 18,
+    pointsParMot: 1.5,
+    difficulte: 'Moyen',
+    temps: 6,
+    enonce: 'Complétez la grille de mots fléchés pour activer les derniers modules de défense. Chaque mot trouvé déverrouille un sous-système.',
+    mots: [
+      { id:1, mot:'CCOMD', dir:'H', def:'Outil de pilotage commercial multi-dimensionnel' },
+      { id:2, mot:'LMD', dir:'H', def:'Modèle de données de référence' },
+      { id:3, mot:'AGASSI', dir:'H', def:'Projet IA Generative pour les insights clients' },
+      { id:4, mot:'TALKTODATA', dir:'V', def:'Interface conversationnelle pour interroger la donnée' },
+      { id:5, mot:'HR', dir:'H', def:'Domaine des Ressources Humaines (abréviation)' },
+      { id:6, mot:'ORION', dir:'H', def:'Constellation et projet Data de référence' },
+      { id:7, mot:'SAMIR', dir:'V', def:'Prénom d\'un acteur clé de l\'équipe Data' },
+      { id:8, mot:'HERMES', dir:'V', def:'Messager des dieux, projet de communication data' },
+      { id:9, mot:'NOA', dir:'H', def:'Prénom féminin lié à un projet Analytics' },
+      { id:10, mot:'MARLIN', dir:'H', def:'Poisson-marlin, projet de tracking & performance' },
+      { id:11, mot:'OPEX', dir:'H', def:'Dépenses opérationnelles (abréviation)' },
+      { id:12, mot:'AGENCYSCORECARD', dir:'V', def:'Tableau de bord de performance des agences' },
+      { id:13, mot:'FERFBM', dir:'V', def:'Système de reporting financier interne' }
+    ],
+    indice: null,
+    feedbackOk: '> GRILLE COMPLÈTE. MODULE 07 DÉVERROUILLÉ.',
+    feedbackEchec: '> ACTIVATION PARTIELLE. SCORE PARTIEL COMPTABILISÉ. PASSAGE AU MODULE SUIVANT.'
+  },
+  {
+    id: 8,
+    type: 'sliding',
+    titre: 'MODULE 08 — SÉQUENÇAGE FINAL',
+    points: 10,
+    difficulte: 'Moyen',
+    temps: 3,
+    enonce: 'DERNIÈRE ÉTAPE, AGENT. Reconstituez le protocole opérationnel dans le bon ordre pour activer le système de déviation.\nRemettez les 8 étapes dans la séquence correcte en déplaçant les tuiles.',
+    pieces: [
+      'Business Need and Value',
+      'Framing & Prioritization',
+      'Data Study',
+      'Data Product Design',
+      'Build, Test & Certification',
+      'Run, Monitor & Improve',
+      'Measure Value',
+      'You win'
+    ],
+    indice: 'Pensez au cycle de vie d\'un projet Data, du besoin au résultat.',
+    feedbackOk: '> SÉQUENCE VALIDÉE. SYSTÈME ACTIVÉ. KHAOS PEUT ÊTRE DÉVIÉ. MISSION ACCOMPLIE.',
+    feedbackEchec: '> SÉQUENÇAGE INCORRECT. SCORE PARTIEL ENREGISTRÉ. FIN DE MISSION.'
+  }
+];
+
+const TOTAL_ENIGMES = ENIGMES.length;
+const TOTAL_MINUTES = 30;
+
+let state = {
+  team: '',
+  score: 0,
+  currentIdx: 0,
+  timer: TOTAL_MINUTES * 60,
+  timerInterval: null,
+  timerStarted: false,
+  enigmeStates: ENIGMES.map(e => ({
+    id: e.id,
+    titre: e.titre,
+    points: e.type === 'crossword' ? 0 : 0,
+    maxPoints: e.points,
+    tentatives: 0,
+    solved: false,
+    failed: false,
+    hintUsed: false,
+    hintPenalty: 0,
+    partialScore: 0
+  })),
+  crosswordPartial: 0,
+  timeout: false
+};
+
+// ============================================================
+//  CROSSWORD GRID — EXACT CELL MAP
+// ============================================================
+// Col: A=0,B=1,C=2,D=3,E=4,F=5,G=6,H=7,I=8,J=9,K=10,L=11,M=12,N=13,O=14,P=15,Q=16
+// Row: row1=r0, row2=r1 ... row19=r18
+// Each cell: { number: '4' } = label only (no letter shown)
+//            { letter: 'T' } = letter shown, non-editable
+//            Both can coexist if same cell has number+letter but per user spec:
+//            number cells show ONLY the number, letter cells show ONLY the letter.
+
+const CW_EXACT = {
+  // Format: 'r,c': { num: '...', letter: '...' }
+  // num only = shows number, no letter (numbered cell)
+  // letter only = shows letter
+  // num + letter = shows number in corner + letter (start of word cells that have both)
+
+  // TALKTODATA vertical (col D=3)
+  '0,3': { num: '4' },        // 1D → shows "4"
+  '1,3': { letter: 'T' },     // 2D
+  '2,3': { letter: 'A' },     // 3D
+  '3,3': { letter: 'L' },     // 4D (also 4C=2 label row — separate)
+  '4,3': { letter: 'K' },     // 5D
+  '5,3': { letter: 'T' },     // 6D
+  '6,3': { letter: 'O' },     // 7D
+  '7,3': { letter: 'D' },     // 8D
+  '8,3': { letter: 'A' },     // 9D
+  '9,3': { letter: 'T' },     // 10D
+  '10,3': { letter: 'A' },    // 11D
+
+  // ORION horizontal (row 8 = r7, cols F-K)
+  '7,5': { num: '6' },        // 8F → shows "6"
+  '7,6': { letter: 'O' },     // 8G
+  '7,7': { letter: 'R' },     // 8H
+  '7,8': { letter: 'I' },     // 8I
+  '7,9': { letter: 'O' },     // 8J
+  '7,10': { letter: 'N' },    // 8K
+
+  // SAMIR vertical label + letters (col G=6)
+  '9,6': { num: '7' },        // 10G → shows "7" only
+  '11,6': { letter: 'A' },    // 12G
+  '12,6': { letter: 'M' },    // 13G
+  '13,6': { letter: 'I' },    // 14G
+
+  // LMD horizontal (row 4 = r3)
+  '3,2': { num: '2' },        // 4C → shows "2"
+  '3,3': { letter: 'L' },     // 4D (shared with TALKTODATA L — already set, keep letter)
+  '3,4': { letter: 'M' },     // 4E
+  '3,5': { letter: 'D' },     // 4F
+
+  // CCOMD horizontal (row 7 = r6, cols A-F)
+  '6,0': { num: '1' },        // 7A → shows "1"
+  '6,1': { letter: 'C' },     // 7B
+  '6,2': { letter: 'C' },     // 7C
+  // 7D = O (TALKTODATA) already at '6,3'
+  '6,3': { letter: 'O' },     // 7D shared
+  '6,4': { letter: 'M' },     // 7E
+  '6,5': { letter: 'D' },     // 7F
+
+  // AGASSI horizontal (row 11 = r10, cols C-I)
+  '10,2': { num: '3' },       // 11C → shows "3"
+  // 11D = A (TALKTODATA) already at '10,3'
+  '10,3': { letter: 'A' },    // 11D shared
+  '10,4': { letter: 'G' },    // 11E
+  '10,5': { letter: 'A' },    // 11F
+  '10,6': { letter: 'S' },    // 11G (also SAMIR S start)
+  '10,7': { letter: 'S' },    // 11H
+  '10,8': { letter: 'I' },    // 11I
+
+  // HR horizontal (row 15 = r14)
+  '14,4': { num: '5' },       // 15E → shows "5"
+  '14,5': { letter: 'H' },    // 15F
+  '14,6': { letter: 'R' },    // 15G
+
+  // NOA + HERMES shared label at 5H (r4,c7)
+  '4,7': { num: '8/9' },      // 5H → shows "8/9" only
+
+  // HERMES vertical (col H=7, rows 6-11 = r5-r10)
+  '5,7': { letter: 'H' },     // 6H
+  '6,7': { letter: 'E' },     // 7H
+  // 8H = R (ORION) already at '7,7'
+  '8,7': { letter: 'M' },     // 9H
+  '9,7': { letter: 'E' },     // 10H
+  // 11H = S (AGASSI) already at '10,7'
+
+  // NOA horizontal (row 5 = r4, cols I-K)
+  '4,8': { letter: 'N' },     // 5I
+  '4,9': { letter: 'O' },     // 5J
+  '4,10': { letter: 'A' },    // 5K (shared with AGENCYSCORECARD A)
+
+  // MARLIN horizontal (row 5 = r4, cols L-Q)
+  '4,11': { letter: 'M' },    // 5L
+  '4,12': { letter: 'A' },    // 5M
+  '4,13': { letter: 'R' },    // 5N
+  '4,14': { letter: 'L' },    // 5O
+  '4,15': { letter: 'I' },    // 5P
+  '4,16': { letter: 'N' },    // 5Q
+
+  // AGENCYSCORECARD vertical (col K=10, rows 4-19 = r3-r18)
+  '3,10': { num: '11' },      // 4K → shows "11" (label for MARLIN too)
+  // 5K = A (NOA) already at '4,10'
+  '5,10': { letter: 'G' },    // 6K
+  '6,10': { letter: 'E' },    // 7K
+  // 8K = N (between ORION N at r7 and next): '8,10' not listed → implicit
+  '8,10': { letter: 'C' },    // 9K
+  '9,10': { letter: 'Y' },    // 10K
+  '10,10': { letter: 'S' },   // 11K
+  '11,10': { letter: 'C' },   // 12K
+  '12,10': { letter: 'O' },   // 13K (shared with OPEX O)
+  '13,10': { letter: 'R' },   // 14K
+  '14,10': { letter: 'E' },   // 15K
+  '15,10': { letter: 'C' },   // 16K
+  '16,10': { letter: 'A' },   // 17K
+  '17,10': { letter: 'R' },   // 18K
+  '18,10': { letter: 'D' },   // 19K
+
+  // OPEX horizontal (row 13 = r12)
+  '12,9': { num: '10' },      // 13J → shows "10"
+  // 13K = O (AGENCYSCORECARD) already at '12,10'
+  '12,11': { letter: 'P' },   // 13L
+  '12,12': { letter: 'E' },   // 13M (shared with FERFBM E)
+  '12,13': { letter: 'X' },   // 13N
+
+  // FERFBM vertical (col M=12)
+  '10,12': { num: '12' },     // 11M → shows "12"
+  '11,12': { letter: 'F' },   // 12M
+  // 13M = E (OPEX) already at '12,12'
+  '13,12': { letter: 'R' },   // 14M
+  '14,12': { letter: 'F' },   // 15M
+  '15,12': { letter: 'B' },   // 16M
+  '16,12': { letter: 'M' },   // 17M
+};
+
+// Word definitions for clues panel
+const CW_PLACEMENTS = [
+  { wordId: 1,  dir: 'H', def: 'Performance management tool for Network, Customer Care department at Head Office, in Regional Offices and Agencies' },
+  { wordId: 2,  dir: 'H', def: 'Financial and operational monitoring tool by shipping line' },
+  { wordId: 3,  dir: 'H', def: 'Agent assistant for fast and accurate customer inquiry responses' },
+  { wordId: 4,  dir: 'V', def: 'Conversational interface to query data as easily as chatting with a colleague' },
+  { wordId: 5,  dir: 'H', def: 'Global workforce tracking dashboard' },
+  { wordId: 6,  dir: 'H', def: 'Line management reporting tool' },
+  { wordId: 7,  dir: 'V', def: 'Decision-support tool for optimizing container repair' },
+  { wordId: 8,  dir: 'V', def: 'Management meeting reporting' },
+  { wordId: 9,  dir: 'H', def: 'Optimal vessel fleet assignment tool and name of the associated program' },
+  { wordId: 10, dir: 'H', def: 'Financial monitoring tool for operational expenses and related volumes across the network' },
+  { wordId: 11, dir: 'H', def: 'Performance management tool for the Global Experience Network' },
+  { wordId: 12, dir: 'V', def: 'Ten-week forecast tool for empty equipment returns and demand by location and type' },
+  { wordId: 13, dir: 'V', def: 'Système de reporting financier interne' },
+];
+
+let cwGrid = null;
+
+function buildCWGrid() {
+  // Determine grid bounds from CW_EXACT keys
+  let maxRow = 0, maxCol = 0;
+  Object.keys(CW_EXACT).forEach(key => {
+    const [r, c] = key.split(',').map(Number);
+    maxRow = Math.max(maxRow, r);
+    maxCol = Math.max(maxCol, c);
+  });
+
+  const rows = maxRow + 1;
+  const cols = maxCol + 1;
+
+  // Init empty grid
+  const grid = [];
+  for (let r = 0; r < rows; r++) {
+    grid.push([]);
+    for (let c = 0; c < cols; c++) {
+      grid[r].push({ letter: null, number: null, active: false });
+    }
+  }
+
+  // Fill from CW_EXACT
+  Object.entries(CW_EXACT).forEach(([key, val]) => {
+    const [r, c] = key.split(',').map(Number);
+    grid[r][c].active = true;
+    if (val.letter) grid[r][c].letter = val.letter;
+    if (val.num)    grid[r][c].number = val.num;
+  });
+
+  return { grid, rows, cols, placements: CW_PLACEMENTS };
+}
+function norm(v) {
+  return (v || '').toLowerCase().trim().replace(/\s+/g,' ');
+}
+
+function $(id) { return document.getElementById(id); }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+}
+
+function setHeader(visible) {
+  $('game-header').className = visible ? 'visible' : '';
+}
+
+function updateHeader() {
+  $('h-team').textContent = state.team;
+  $('h-score').textContent = Math.round(state.score);
+  $('h-module').textContent = state.currentIdx + 1;
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(state.timer / 60);
+  const s = state.timer % 60;
+  const str = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  const el = $('h-timer');
+  el.textContent = str;
+  el.className = 'header-item header-timer' + (state.timer < 300 ? ' danger' : '');
+}
+
+function startTimer() {
+  if (state.timerStarted) return;
+  state.timerStarted = true;
+  state.timerInterval = setInterval(() => {
+    state.timer--;
+    updateTimerDisplay();
+    if (state.timer <= 0) {
+      clearInterval(state.timerInterval);
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function handleTimeout() {
+  state.timeout = true;
+  showEndScreen();
+}
+
+// ============================================================
+//  BOOT ANIMATION
+// ============================================================
+function bootAnimation() {
+  const lines = document.querySelectorAll('.boot-line');
+  let i = 0;
+  function showNext() {
+    if (i < lines.length) {
+      lines[i].classList.add('shown');
+      i++;
+      setTimeout(showNext, 600);
+    } else {
+      setTimeout(() => {
+        $('boot-loader').style.display = 'block';
+        setTimeout(() => {
+          $('btn-boot-next').style.display = 'inline-block';
+        }, 2200);
+      }, 400);
+    }
+  }
+  setTimeout(showNext, 500);
+}
+
+function goToConsignes() {
+  showScreen('screen-consignes');
+}
+
+// ============================================================
+//  START MISSION
+// ============================================================
+function startMission() {
+  const teamInput = $('team-input').value.trim();
+  if (teamInput.length < 2) {
+    $('team-error').style.display = 'block';
+    return;
+  }
+  $('team-error').style.display = 'none';
+  state.team = teamInput.toUpperCase();
+  setHeader(true);
+  updateHeader();
+  startTimer();
+  loadEnigme(0);
+}
+
+// ============================================================
+//  ENIGME LOADING
+// ============================================================
+function loadEnigme(idx) {
+  state.currentIdx = idx;
+  $('h-module').textContent = idx + 1;
+  $('progress-fill').style.width = (idx / TOTAL_ENIGMES * 100) + '%';
+  updateHeader();
+  showScreen('screen-game');
+  renderEnigme(ENIGMES[idx], state.enigmeStates[idx]);
+}
+
+function renderEnigme(e, es) {
+  const container = $('enigme-container');
+  const diffClass = e.difficulte.toLowerCase();
+
+  let html = `
+    <div class="module-header">
+      <div class="module-title glitch">${e.titre}</div>
+      <div class="module-meta">
+        <span class="meta-badge ${diffClass}">${e.difficulte}</span>
+        <span>${e.points} POINTS</span>
+        <span>~${e.temps} MIN</span>
+      </div>
+    </div>
+  `;
+
+  // ENONCE
+  if (e.type !== 'crossword') {
+    html += `<div class="enonce-box">${escHtml(e.enonce)}</div>`;
+  }
+
+  // TYPE-SPECIFIC CONTENT
+  if (e.type === 'rebus' || e.type === 'rebus2') {
+    html += renderRebus(e);
+  } else if (e.type === 'image') {
+    html += renderImage(e);
+  } else if (e.type === 'polybe') {
+    html += renderPolybe(e);
+  } else if (e.type === 'sliding') {
+    html += renderSliding(e, es);
+  } else if (e.type === 'crossword') {
+    html += renderCrossword(e);
+  }
+
+  // ANSWER SECTION (not crossword or sliding — they have their own validate)
+  if (e.type !== 'crossword' && e.type !== 'sliding') {
+    html += `
+      <div class="answer-section">
+        <div class="answer-label">> ENTREZ VOTRE RÉPONSE :</div>
+        <div class="answer-row">
+          <input type="text" id="answer-input" class="terminal-input" style="flex:1; min-width:200px"
+            placeholder="RÉPONSE..."
+            onkeydown="if(event.key==='Enter') submitAnswer()"
+            ${es.solved || es.failed ? 'disabled' : ''}>
+          <button class="btn" onclick="submitAnswer()" ${es.solved || es.failed ? 'disabled' : ''}>
+            [ VALIDER ]
+          </button>
+        </div>
+        <div class="attempts-display">
+          TENTATIVES : <span style="color:var(--${es.tentatives>=2?'danger':'warning'})">${es.tentatives}</span>/3
+        </div>
+      </div>
+    `;
+  }
+
+  // FEEDBACK
+  html += `<div id="feedback-box"></div>`;
+
+  // HINT SECTION
+  if (!es.solved && !es.failed && e.indice) {
+    html += `
+      <div class="hint-section">
+        ${!es.hintUsed
+          ? `<button class="btn btn-small" onclick="requestHint()">? INDICE (-5 pts)</button>`
+          : `<div class="hint-box">💡 INDICE : ${escHtml(e.indice)}</div>`
+        }
+      </div>
+    `;
+  } else if (es.hintUsed && e.indice) {
+    html += `
+      <div class="hint-section">
+        <div class="hint-box">💡 INDICE : ${escHtml(e.indice)}</div>
+      </div>
+    `;
+  }
+
+  // NEXT BUTTON (if already done)
+  if (es.solved || es.failed) {
+    const isLast = state.currentIdx === TOTAL_ENIGMES - 1;
+    html += `
+      <div class="text-center mt-20">
+        <button class="btn" onclick="${isLast ? 'showEndScreen()' : 'goNextEnigme()'}">
+          ${isLast ? '[ VOIR LES RÉSULTATS ]' : '[ MODULE SUIVANT → ]'}
+        </button>
+      </div>
+    `;
+    // Show existing feedback
+    setTimeout(() => {
+      const fb = $('feedback-box');
+      if (fb) {
+        fb.innerHTML = `<div class="feedback-box ${es.solved ? 'feedback-success' : 'feedback-error'}">${es.solved ? ENIGMES[state.currentIdx].feedbackOk : ENIGMES[state.currentIdx].feedbackEchec}</div>`;
+      }
+    }, 50);
+  }
+
+  container.innerHTML = html;
+
+  // Post-render setup
+  if (e.type === 'crossword') {
+    setupCrossword();
+  } else if (e.type === 'sliding') {
+    // Already initialized in renderSliding
+  }
+
+  // Auto-focus answer input
+  setTimeout(() => {
+    const inp = $('answer-input');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+// ============================================================
+//  SLIDING PUZZLE
+// ============================================================
+// State: array of 9 positions (0-8), value = piece index (0-7) or -1 for empty
+let slidingState = [];
+let slidingMoves = 0;
+
+function renderSliding(e, es) {
+  // Initialize board if not done
+  if (!slidingState.length) initSliding(e.pieces);
+
+  const correct = countCorrect(e.pieces);
+  let html = `<div class="sliding-progress">> PIÈCES EN PLACE : <span id="slide-correct">${correct}</span>/8</div>`;
+  html += `<div class="sliding-hint">Cliquez sur une tuile adjacente à la case vide pour la déplacer</div>`;
+  html += `<div class="sliding-board" id="sliding-board">`;
+  for (let i = 0; i < 9; i++) {
+    const pieceIdx = slidingState[i];
+    if (pieceIdx === -1) {
+      html += `<div class="slide-tile empty"></div>`;
+    } else {
+      const isCorrect = pieceIdx === i;
+      html += `<div class="slide-tile ${isCorrect && !es.solved ? 'correct-pos' : ''}" onclick="slideTile(${i})">
+        <span class="slide-tile-num">${pieceIdx + 1}</span>
+        ${escHtml(e.pieces[pieceIdx])}
+      </div>`;
+    }
+  }
+  html += `</div>`;
+
+  if (!es.solved && !es.failed) {
+    html += `<div class="text-center">
+      <button class="btn" onclick="checkSliding()" style="margin-right:12px">[ VALIDER LA SÉQUENCE ]</button>
+      <button class="btn btn-small" onclick="shuffleSliding()">[ MÉLANGER ]</button>
+    </div>`;
+  }
+  return html;
+}
+
+function initSliding(pieces) {
+  // Start with solved state then shuffle
+  slidingState = [0,1,2,3,4,5,6,7,-1]; // -1 = empty tile (bottom-right)
+  slidingMoves = 0;
+  shuffleSliding();
+}
+
+function shuffleSliding() {
+  // Perform 200 random valid moves from current state to ensure solvability
+  for (let k = 0; k < 200; k++) {
+    const empty = slidingState.indexOf(-1);
+    const neighbors = getNeighbors(empty);
+    const pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+    slidingState[empty] = slidingState[pick];
+    slidingState[pick] = -1;
+  }
+  slidingMoves = 0;
+  redrawSliding();
+}
+
+function getNeighbors(pos) {
+  const row = Math.floor(pos / 3), col = pos % 3;
+  const n = [];
+  if (row > 0) n.push(pos - 3);
+  if (row < 2) n.push(pos + 3);
+  if (col > 0) n.push(pos - 1);
+  if (col < 2) n.push(pos + 1);
+  return n;
+}
+
+function slideTile(pos) {
+  const es = state.enigmeStates[state.currentIdx];
+  if (es.solved || es.failed) return;
+  const empty = slidingState.indexOf(-1);
+  if (!getNeighbors(empty).includes(pos)) return;
+  slidingState[empty] = slidingState[pos];
+  slidingState[pos] = -1;
+  slidingMoves++;
+  redrawSliding();
+  // Auto-check if solved
+  if (isSlidingSolved()) checkSliding();
+}
+
+function redrawSliding() {
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  const board = $('sliding-board');
+  if (!board) return;
+  board.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const pieceIdx = slidingState[i];
+    if (pieceIdx === -1) {
+      const div = document.createElement('div');
+      div.className = 'slide-tile empty';
+      board.appendChild(div);
+    } else {
+      const isCorrect = pieceIdx === i;
+      const div = document.createElement('div');
+      div.className = `slide-tile${isCorrect ? ' correct-pos' : ''}`;
+      div.onclick = () => slideTile(i);
+      div.innerHTML = `<span class="slide-tile-num">${pieceIdx + 1}</span>${escHtml(e.pieces[pieceIdx])}`;
+      board.appendChild(div);
+    }
+  }
+  const correctEl = $('slide-correct');
+  if (correctEl) correctEl.textContent = countCorrect(e.pieces);
+}
+
+function countCorrect(pieces) {
+  return slidingState.filter((v, i) => v === i).length;
+}
+
+function isSlidingSolved() {
+  return slidingState.every((v, i) => i === 8 ? v === -1 : v === i);
+}
+
+function checkSliding() {
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  if (es.solved || es.failed) return;
+
+  if (isSlidingSolved()) {
+    es.solved = true;
+    es.points = e.points - (es.hintUsed ? 5 : 0);
+    state.score += es.points;
+    updateHeader();
+    const fb = $('feedback-box');
+    if (fb) fb.innerHTML = `<div class="feedback-box feedback-success">${escHtml(e.feedbackOk)}</div>`;
+    // Disable board
+    document.querySelectorAll('.slide-tile').forEach(t => t.style.pointerEvents = 'none');
+    document.querySelectorAll('.sliding-board ~ div button').forEach(b => b.disabled = true);
+    setTimeout(() => showNextBtn(), 400);
+  } else {
+    es.tentatives++;
+    const correct = countCorrect(e.pieces);
+    const remaining = 3 - es.tentatives;
+    const fb = $('feedback-box');
+    if (remaining <= 0) {
+      es.failed = true;
+      if (fb) fb.innerHTML = `<div class="feedback-box feedback-error">${escHtml(e.feedbackEchec)}</div>`;
+      document.querySelectorAll('.slide-tile').forEach(t => t.style.pointerEvents = 'none');
+      setTimeout(() => showNextBtn(), 400);
+    } else {
+      if (fb) fb.innerHTML = `<div class="feedback-box feedback-error">> SÉQUENCE INCORRECTE — ${correct}/8 PIÈCES EN PLACE — ${remaining} TENTATIVE(S) RESTANTE(S)</div>`;
+    }
+  }
+}
+
+function renderRebus(e) {
+  if (e.type === 'rebus') {
+    // Group consecutive identical emojis, separate distinct ones with +
+    const groups = [];
+    e.rebus.forEach(emoji => {
+      if (groups.length > 0 && groups[groups.length-1].emoji === emoji) {
+        groups[groups.length-1].count++;
+      } else {
+        groups.push({ emoji, count: 1 });
+      }
+    });
+    let html = '<div class="rebus-container">';
+    groups.forEach((g, i) => {
+      // Render the group (repeated emoji side by side, no separator inside)
+      html += `<div style="display:flex;align-items:center;gap:4px">`;
+      for (let k = 0; k < g.count; k++) {
+        html += `<div class="rebus-item">${g.emoji}</div>`;
+      }
+      html += `</div>`;
+      if (i < groups.length - 1) html += `<div class="rebus-plus">+</div>`;
+    });
+    html += '</div>';
+    return html;
+  } else {
+    // rebus2 with phonetic labels hidden
+    let html = '<div class="rebus-container">';
+    e.rebus.forEach((item, i) => {
+      html += `<div class="rebus-item" title="">${item.emoji}</div>`;
+      if (i < e.rebus.length - 1) html += `<div class="rebus-plus">+</div>`;
+    });
+    html += '</div>';
+    html += `<div style="font-size:12px; color:var(--text-dim); text-align:center; letter-spacing:2px; margin-bottom:16px">> ${escHtml(e.instruction)}</div>`;
+    return html;
+  }
+}
+
+function renderImage(e) {
+  // No external image available; show satellite terminal placeholder with Alexandria hint imagery
+  return `
+    <div class="module-image-container scan-line-effect" style="position:relative">
+      <div style="padding: 20px; background:#000; border: 1px solid var(--muted);">
+        <div style="color:var(--text-dim); font-size:11px; letter-spacing:3px; margin-bottom:12px; text-align:center">
+          ⚡ SIGNAL SATELLITE — COORDONNÉES INTERCEPTÉES
+        </div>
+        <div style="text-align:center; font-family:monospace; color:var(--secondary); font-size:13px; line-height:2; padding:10px; border:1px dashed var(--muted)">
+          <div style="font-size:11px; color:var(--text-dim); margin-bottom:8px">31°12'10"N  29°53'08"E</div>
+          <pre style="color:var(--primary); font-size:11px; text-shadow:0 0 5px var(--primary); text-align:center">
+    ╔═══════════════════════════════════╗
+    ║  ██████╗  ██╗  ██╗               ║
+    ║  ██╔══██╗ ██║  ██║               ║
+    ║  ██████╔╝ ███████║               ║
+    ║  ██╔══██╗ ██╔══██║               ║
+    ║  ██████╔╝ ██║  ██║               ║
+    ║  ╚═════╝  ╚═╝  ╚═╝               ║
+    ║                                   ║
+    ║   ┌────────────────────────┐      ║
+    ║   │ ░░░░░░░ FORT ░░░░░░░░ │      ║
+    ║   │ ░ CITADELLE MARITIME ░ │      ║
+    ║   │ ░░░░░░░░░░░░░░░░░░░░░ │      ║
+    ║   │      ╬══╬══╬═══╗       │      ║
+    ║   │      ║  ║  ║   ║       │      ║
+    ║   │      ╚══╩══╩═══╝       │      ║
+    ║   └────────────────────────┘      ║
+    ║         🌊 MÉDITERRANÉE 🌊        ║
+    ╚═══════════════════════════════════╝
+          </pre>
+          <div style="font-size:11px; color:var(--text-dim); margin-top:8px">
+            SITE : CITADELLE QAÏTBAy — PORT EST — DELTA DU NIL
+          </div>
+        </div>
+        <div style="text-align:center; margin-top:12px; color:var(--text-dim); font-size:11px; letter-spacing:2px">
+          AGENT : IDENTIFIEZ LA VILLE — À QUEL PROJET SE RAPPORTE CE LIEU ?
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPolybe(e) {
+  const grid = e.polybe_grid;
+  let html = `<div style="overflow-x:auto; margin-bottom:20px">`;
+  html += `<table class="polybe-table">`;
+  html += `<tr><th>L\\C</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>`;
+  for (let r = 0; r < 5; r++) {
+    html += `<tr><th>${r+1}</th>`;
+    for (let c = 0; c < 5; c++) {
+      html += `<td>${grid[r][c]}</td>`;
+    }
+    html += `</tr>`;
+  }
+  html += `</table></div>`;
+  html += `<div class="code-sequence">> SÉQUENCE CHIFFRÉE :<br><br>${escHtml(e.sequence)}</div>`;
+  return html;
+}
+
+// ============================================================
+//  CROSSWORD
+// ============================================================
+function renderCrossword(e) {
+  if (!cwGrid) cwGrid = buildCWGrid();
+  const { grid, rows, cols, placements } = cwGrid;
+
+  const es = state.enigmeStates[state.currentIdx];
+  const cellSize = window.innerWidth <= 480 ? 26 : (window.innerWidth <= 768 ? 30 : 36);
+  const letterSize = Math.round(cellSize * 0.5);
+  const numSize = Math.round(cellSize * 0.28);
+
+  let html = `<div class="enonce-box">${escHtml(e.enonce)}</div>`;
+
+  if (window.innerWidth <= 768) {
+    html += `<div style="font-size:10px;color:var(--text-dim);text-align:center;letter-spacing:1px;margin-bottom:8px">← FAITES DÉFILER LA GRILLE →</div>`;
+  }
+
+  html += `<div class="crossword-wrapper">`;
+
+  // Grid — purely display, no inputs
+  html += `<div class="crossword-grid-container">`;
+  html += `<div class="crossword-grid" style="display:inline-grid;grid-template-columns:repeat(${cols},${cellSize}px);grid-template-rows:repeat(${rows},${cellSize}px);border:2px solid var(--primary);box-shadow:0 0 20px rgba(0,255,65,0.15);">`;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = grid[r][c];
+
+      if (!cell.active) {
+        // Blocked cell
+        html += `<div style="width:${cellSize}px;height:${cellSize}px;background:#1a1a1a;border:1px solid #222;"></div>`;
+
+      } else if (cell.number && !cell.letter) {
+        // NUMBER-ONLY cell — shows clue number, purple tint, no letter
+        const numFontSize = String(cell.number).length > 2 ? Math.round(numSize * 0.75) : numSize + 2;
+        html += `<div style="width:${cellSize}px;height:${cellSize}px;background:#1a0a2e;border:1px solid #6a3aaa;display:flex;align-items:center;justify-content:center;position:relative;">
+          <span style="font-size:${numFontSize}px;color:#cc99ff;font-weight:bold;font-family:'Courier New',monospace;text-shadow:0 0 6px #9933ff;">${cell.number}</span>
+        </div>`;
+
+      } else if (cell.letter && !cell.number) {
+        // LETTER cell — editable input, empty green box
+        html += `<div style="width:${cellSize}px;height:${cellSize}px;background:#0d220d;border:1px solid #2a6a2a;display:flex;align-items:center;justify-content:center;" onclick="focusCWCell(${r},${c})">
+          <input type="text" id="cwinput-${r}-${c}" maxlength="1"
+            data-row="${r}" data-col="${c}"
+            onkeyup="cwKeyup(event,${r},${c})"
+            oninput="cwInput(event,${r},${c})"
+            style="width:100%;height:100%;background:transparent;border:none;outline:none;color:#00ff41;font-family:'Courier New',monospace;font-size:${letterSize}px;font-weight:bold;text-align:center;text-transform:uppercase;text-shadow:0 0 8px #00ff41;caret-color:#00ff41;cursor:pointer;">
+        </div>`;
+
+      } else if (cell.number && cell.letter) {
+        // Number + letter cell — show only number, hide letter, editable
+        const numFontSize = String(cell.number).length > 2 ? Math.round(numSize * 0.75) : numSize + 2;
+        html += `<div style="width:${cellSize}px;height:${cellSize}px;background:#1a0a2e;border:1px solid #6a3aaa;display:flex;align-items:center;justify-content:center;">
+          <span style="font-size:${numFontSize}px;color:#cc99ff;font-weight:bold;font-family:'Courier New',monospace;text-shadow:0 0 6px #9933ff;">${cell.number}</span>
+        </div>`;
+      }
+    }
+  }
+
+  html += `</div></div>`; // close grid
+
+  // Clues panel
+  html += `<div class="crossword-clues">`;
+  html += `<div class="clue-section-title">→ HORIZONTAUX</div>`;
+  placements.filter(p => p.dir === 'H').forEach(p => {
+    html += `<div class="clue-item"><span class="clue-num">${p.wordId}→</span>${escHtml(p.def)}</div>`;
+  });
+  html += `<div class="clue-section-title" style="margin-top:16px">↓ VERTICAUX</div>`;
+  placements.filter(p => p.dir === 'V').forEach(p => {
+    html += `<div class="clue-item"><span class="clue-num">${p.wordId}↓</span>${escHtml(p.def)}</div>`;
+  });
+  html += `</div>`;
+  html += `</div>`; // crossword-wrapper
+
+  // Since grid is display-only, validation is just confirming they've seen it
+  if (!es.solved && !es.failed) {
+    html += `<div class="text-center mt-20">
+      <button class="btn" onclick="validateCrossword()">[ VALIDER LA GRILLE ]</button>
+    </div>`;
+  }
+
+  return html;
+}
+
+let cwSolvedWords = new Set();
+
+function setupCrossword() {
+  cwSolvedWords = new Set();
+}
+
+function focusCWCell(r, c) {
+  const inp = $(`cwinput-${r}-${c}`);
+  if (inp) inp.focus();
+}
+
+function cwInput(event, r, c) {
+  const val = event.target.value.toUpperCase().slice(-1);
+  event.target.value = val;
+  if (val) cwCheckAuto(r, c);
+}
+
+function cwKeyup(event, r, c) {
+  if (event.key === 'Backspace') {
+    // move back
+    const prev = findPrevCell(r, c);
+    if (prev) focusCWCell(prev[0], prev[1]);
+  } else if (event.key !== 'Backspace' && event.target.value) {
+    const next = findNextCell(r, c);
+    if (next) focusCWCell(next[0], next[1]);
+  }
+}
+
+function findNextCell(r, c) {
+  const { grid, rows, cols } = cwGrid;
+  // Try right first, then down
+  if (c + 1 < cols && grid[r][c+1] && grid[r][c+1].active) return [r, c+1];
+  if (r + 1 < rows && grid[r+1] && grid[r+1][c] && grid[r+1][c].active) return [r+1, c];
+  return null;
+}
+
+function findPrevCell(r, c) {
+  const { grid, rows, cols } = cwGrid;
+  if (c - 1 >= 0 && grid[r][c-1] && grid[r][c-1].active) return [r, c-1];
+  if (r - 1 >= 0 && grid[r-1] && grid[r-1][c] && grid[r-1][c].active) return [r-1, c];
+  return null;
+}
+
+function cwCheckAuto(r, c) {
+  // No live feedback — wait for validation
+}
+
+function validateCrossword() {
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  if (es.solved || es.failed) return;
+
+  const { grid, placements } = cwGrid;
+
+  // Build a lookup of correct letter per (r,c) from CW_EXACT
+  const correctLetters = {};
+  Object.entries(CW_EXACT).forEach(([key, val]) => {
+    if (val.letter) correctLetters[key] = val.letter;
+  });
+
+  // Check every active letter cell
+  let allFilled = true;
+  let allCorrect = true;
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      const cell = grid[r][c];
+      if (!cell.active || !cell.letter) continue; // skip number-only and blocked cells
+      const inp = $(`cwinput-${r}-${c}`);
+      if (!inp) continue;
+      const val = inp.value.toUpperCase();
+      if (!val) { allFilled = false; }
+      else if (val !== cell.letter) {
+        allCorrect = false;
+        inp.style.color = '#ff0040';
+        inp.style.textShadow = '0 0 8px #ff0040';
+      } else {
+        inp.style.color = '#00ff41';
+        inp.style.textShadow = '0 0 8px #00ff41';
+      }
+    }
+  }
+
+  es.tentatives++;
+
+  if (allFilled && allCorrect) {
+    es.solved = true;
+    const pts = e.points - (es.hintUsed ? 5 : 0);
+    es.points = Math.max(0, pts);
+    state.score += es.points;
+    updateHeader();
+    const fb = $('feedback-box');
+    if (fb) fb.innerHTML = `<div class="feedback-box feedback-success">${escHtml(e.feedbackOk)}</div>`;
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn.textContent.includes('VALIDER')) btn.disabled = true;
+    });
+    setTimeout(() => showNextBtn(), 400);
+  } else if (es.tentatives >= 3) {
+    es.failed = true;
+    // Partial score: count correct cells
+    const total = Object.values(CW_EXACT).filter(v => v.letter).length;
+    let correct = 0;
+    Object.entries(CW_EXACT).forEach(([key, val]) => {
+      if (!val.letter) return;
+      const [r, c] = key.split(',').map(Number);
+      const inp = $(`cwinput-${r}-${c}`);
+      if (inp && inp.value.toUpperCase() === val.letter) correct++;
+    });
+    const pts = Math.round((correct / total) * e.points * 10) / 10;
+    es.points = pts;
+    state.score += pts;
+    updateHeader();
+    const fb = $('feedback-box');
+    if (fb) fb.innerHTML = `<div class="feedback-box feedback-error">${escHtml(e.feedbackEchec)} — ${pts} POINTS PARTIELS.</div>`;
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn.textContent.includes('VALIDER')) btn.disabled = true;
+    });
+    setTimeout(() => showNextBtn(), 400);
+  } else {
+    const remaining = 3 - es.tentatives;
+    const fb = $('feedback-box');
+    if (fb) fb.innerHTML = `<div class="feedback-box feedback-error">> GRILLE INCORRECTE — ${remaining} TENTATIVE(S) RESTANTE(S) — Les cases en rouge sont fausses.</div>`;
+  }
+}
+
+function disableCrossword() {
+  document.querySelectorAll('.cw-cell-input').forEach(inp => inp.disabled = true);
+  document.querySelectorAll('button').forEach(btn => {
+    if (btn.textContent.includes('VÉRIFIER')) btn.disabled = true;
+  });
+}
+
+function showNextBtn() {
+  const isLast = state.currentIdx === TOTAL_ENIGMES - 1;
+  const container = $('enigme-container');
+  const existing = container.querySelector('.btn-next-module');
+  if (existing) return;
+  const div = document.createElement('div');
+  div.className = 'text-center mt-20 btn-next-module';
+  div.innerHTML = `<button class="btn" onclick="${isLast ? 'showEndScreen()' : 'goNextEnigme()'}">${isLast ? '[ VOIR LES RÉSULTATS ]' : '[ MODULE SUIVANT → ]'}</button>`;
+  container.appendChild(div);
+}
+
+// ============================================================
+//  SUBMIT ANSWER
+// ============================================================
+function submitAnswer() {
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  if (es.solved || es.failed) return;
+
+  const input = $('answer-input');
+  const val = input ? input.value : '';
+  if (!val.trim()) return;
+
+  const correct = e.valider(val);
+  es.tentatives++;
+
+  const fb = $('feedback-box');
+
+  if (correct) {
+    es.solved = true;
+    const pts = e.points - (es.hintUsed ? 5 : 0);
+    const earnedPts = Math.max(0, pts);
+    es.points = earnedPts;
+    state.score += earnedPts;
+    updateHeader();
+    fb.innerHTML = `<div class="feedback-box feedback-success">${escHtml(e.feedbackOk)}</div>`;
+    if (input) input.disabled = true;
+    document.querySelectorAll('.answer-row button').forEach(b => b.disabled = true);
+    const isLast = state.currentIdx === TOTAL_ENIGMES - 1;
+    setTimeout(() => {
+      const d = document.createElement('div');
+      d.className = 'text-center mt-20';
+      d.innerHTML = `<button class="btn" onclick="${isLast ? 'showEndScreen()' : 'goNextEnigme()'}">
+        ${isLast ? '[ VOIR LES RÉSULTATS ]' : '[ MODULE SUIVANT → ]'}
+      </button>`;
+      $('enigme-container').appendChild(d);
+    }, 500);
+  } else {
+    if (es.tentatives >= 3) {
+      es.failed = true;
+      fb.innerHTML = `<div class="feedback-box feedback-error">${escHtml(e.feedbackEchec)}</div>`;
+      if (input) input.disabled = true;
+      document.querySelectorAll('.answer-row button').forEach(b => b.disabled = true);
+      const isLast = state.currentIdx === TOTAL_ENIGMES - 1;
+      setTimeout(() => {
+        const d = document.createElement('div');
+        d.className = 'text-center mt-20';
+        d.innerHTML = `<button class="btn" onclick="${isLast ? 'showEndScreen()' : 'goNextEnigme()'}">
+          ${isLast ? '[ VOIR LES RÉSULTATS ]' : '[ MODULE SUIVANT → ]'}
+        </button>`;
+        $('enigme-container').appendChild(d);
+      }, 500);
+    } else {
+      const remaining = 3 - es.tentatives;
+      fb.innerHTML = `<div class="feedback-box feedback-error">> ACCÈS REFUSÉ — ${remaining} TENTATIVE(S) RESTANTE(S)</div>`;
+      // Update attempts display
+      const att = document.querySelector('.attempts-display');
+      if (att) att.innerHTML = `TENTATIVES : <span style="color:var(--${es.tentatives>=2?'danger':'warning'})">${es.tentatives}</span>/3`;
+    }
+  }
+  if (input) input.value = '';
+}
+
+// ============================================================
+//  HINTS
+// ============================================================
+function requestHint() {
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  if (es.hintUsed || !e.indice) return;
+  $('hint-popup').classList.add('active');
+}
+
+function closeHintPopup() {
+  $('hint-popup').classList.remove('active');
+}
+
+function confirmHint() {
+  closeHintPopup();
+  const e = ENIGMES[state.currentIdx];
+  const es = state.enigmeStates[state.currentIdx];
+  es.hintUsed = true;
+  es.hintPenalty = 5;
+  // Re-render hint section
+  const hintSection = document.querySelector('.hint-section');
+  if (hintSection) {
+    hintSection.innerHTML = `<div class="hint-box">💡 INDICE : ${escHtml(e.indice)}</div>`;
+  }
+}
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function goNextEnigme() {
+  const nextIdx = state.currentIdx + 1;
+  if (nextIdx >= TOTAL_ENIGMES) {
+    showEndScreen();
+    return;
+  }
+  showTransition(nextIdx);
+}
+
+function showTransition(nextIdx) {
+  showScreen('screen-transition');
+  const lines = [
+    `> MODULE ${state.currentIdx + 1} TRAITÉ. CHARGEMENT DU MODULE ${nextIdx + 1}...`,
+    `> SYNCHRONISATION SATELLITE... OK`,
+    `> CONNEXION SÉCURISÉE... ÉTABLIE`,
+    `> ACCÈS MODULE ${ENIGMES[nextIdx].titre}...`
+  ];
+  const container = $('transition-lines');
+  container.innerHTML = lines.map(l => `<div class="transition-line">${escHtml(l)}</div>`).join('');
+  const els = container.querySelectorAll('.transition-line');
+  let i = 0;
+  function show() {
+    if (i < els.length) {
+      els[i].classList.add('shown');
+      i++;
+      setTimeout(show, 300);
+    } else {
+      setTimeout(() => loadEnigme(nextIdx), 700);
+    }
+  }
+  show();
+}
+
+// ============================================================
+//  END SCREEN
+// ============================================================
+function showEndScreen() {
+  clearInterval(state.timerInterval);
+  setHeader(false);
+  showScreen('screen-end');
+
+  const totalSecs = TOTAL_MINUTES * 60 - state.timer;
+  const mm = Math.floor(totalSecs / 60);
+  const ss = totalSecs % 60;
+
+  const finalScore = Math.round(state.score * 10) / 10;
+  const isTimeout = state.timeout;
+  const allSolved = state.enigmeStates.every(es => es.solved);
+
+  const box = $('end-box');
+  if (isTimeout || !allSolved) box.classList.add('timeout');
+
+  if (isTimeout) {
+    $('end-title').textContent = '> TEMPS ÉCOULÉ. KHAOS A FRAPPÉ.\n> MISSION ÉCHOUÉE — SCORE PARTIEL ENREGISTRÉ.';
+  } else if (allSolved) {
+    $('end-title').textContent = '> MISSION ACCOMPLIE, AGENT.\n> L\'ASTÉROÏDE KHAOS A ÉTÉ DÉVIÉ.\n> LA TERRE EST SAUVE.';
+  } else {
+    $('end-title').textContent = '> MISSION ÉCHOUÉE, AGENT.\n> KHAOS N\'A PAS PU ÊTRE DÉVIÉ.\n> CERTAINS MODULES SONT RESTÉS VERROUILLÉS.';
+  }
+
+  $('end-team').textContent = `ÉQUIPE : ${state.team}`;
+  $('end-score').textContent = `${finalScore} / 100`;
+  $('end-time').textContent = `TEMPS UTILISÉ : ${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+
+  // Detail rows
+  let detailHtml = '';
+  state.enigmeStates.forEach((es, i) => {
+    const e = ENIGMES[i];
+    const pts = es.points || es.partialScore || 0;
+    const status = es.solved ? '✓' : (es.failed ? '✗' : '—');
+    const statusColor = es.solved ? 'var(--primary)' : (es.failed ? 'var(--danger)' : 'var(--text-dim)');
+    detailHtml += `
+      <div class="end-module-row">
+        <div class="mod-name" style="color:${statusColor}">${status} ${escHtml(e.titre)}</div>
+        <div class="mod-pts">${Math.round(pts * 10)/10}/${e.points} pts</div>
+        <div class="mod-hint">${es.hintUsed ? '💡 -5pts' : ''}</div>
+        <div class="mod-tries">${es.tentatives}/3 essais</div>
+      </div>
+    `;
+  });
+  $('end-details-body').innerHTML = detailHtml;
+}
+
+// ============================================================
+//  RESET
+// ============================================================
+function resetGame() {
+  clearInterval(state.timerInterval);
+  state = {
+    team: '',
+    score: 0,
+    currentIdx: 0,
+    timer: TOTAL_MINUTES * 60,
+    timerInterval: null,
+    timerStarted: false,
+    enigmeStates: ENIGMES.map(e => ({
+      id: e.id,
+      titre: e.titre,
+      points: 0,
+      maxPoints: e.points,
+      tentatives: 0,
+      solved: false,
+      failed: false,
+      hintUsed: false,
+      hintPenalty: 0,
+      partialScore: 0
+    })),
+    crosswordPartial: 0,
+    timeout: false
+  };
+  cwGrid = null;
+  cwSolvedWords = new Set();
+  slidingState = [];
+  slidingMoves = 0;
+  $('team-input').value = '';
+  $('end-box').classList.remove('timeout');
+  setHeader(false);
+  updateTimerDisplay();
+  showScreen('screen-boot');
+  // Re-run boot
+  document.querySelectorAll('.boot-line').forEach(el => el.classList.remove('shown'));
+  $('boot-loader').style.display = 'none';
+  $('btn-boot-next').style.display = 'none';
+  bootAnimation();
+}
+
+// ============================================================
+//  ESCAPE HTML
+// ============================================================
+function escHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/\n/g,'<br>');
+}
+
+// ============================================================
+//  STARS BACKGROUND
+// ============================================================
+function generateStars() {
+  const container = $('stars');
+  for (let i = 0; i < 150; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.opacity = Math.random() * 0.6 + 0.1;
+    star.style.width = star.style.height = (Math.random() * 2 + 1) + 'px';
+    star.style.animationDelay = Math.random() * 3 + 's';
+    container.appendChild(star);
+  }
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('load', () => {
+  generateStars();
+  bootAnimation();
+});
+</script>
+</body>
+</html>
